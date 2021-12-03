@@ -14,7 +14,9 @@ module.exports = async function (file) {
 
   for await (const line of rl) {
     // Each line in input.txt will be successively available here as `line`.
-    linesRead.push(line);
+    if (line && line.trim()) {
+      linesRead.push(line);
+    }
   }
   return linesRead;
 };
