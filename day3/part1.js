@@ -1,7 +1,7 @@
 const LINE_SIZE = 12;
-const INPUT_FILE = 'd3.input';
+const INPUT_FILE = 'input.in';
 
-const readLines = require('./utils/readLines');
+const readLines = require('../utils/readLines');
 
 try {
   (async () => {

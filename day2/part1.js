@@ -1,8 +1,8 @@
 const { isNumber } = require('util');
-const readLines = require('./utils/readLines');
+const readLines = require('../utils/readLines');
 try {
   (async () => {
-    const lines = await readLines('d2_1.input');
+    const lines = await readLines('input.in');
     if (lines) {
       const [horizontal, depth] = main(lines);
       console.log(

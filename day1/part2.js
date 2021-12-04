@@ -1,10 +1,10 @@
-const readLines = require('./utils/readLines');
+const readLines = require('../utils/readLines');
 
 const sum = (a, b) => a + b;
 
 try {
   (async () => {
-    const lines = await readLines('d1_1.input');
+    const lines = await readLines('input.in');
     if (lines) {
       let count = 0;
       lines.reduce((previous, current) => {
