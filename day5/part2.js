@@ -84,11 +84,12 @@ const findMaxBoundaries = (ventCoordinates) => {
   };
 };
 
-const countDangerCoordinates = (diagram, dangerOverlap) => {
+// number of coordinates with a count above the threshold
+const countDangerCoordinates = (diagram, dangerThreshold) => {
   let count = 0;
   for (let y = 0; y < diagram.length; y++) {
     for (let x = 0; x < diagram[0].length; x++) {
-      if (diagram[y][x] >= dangerOverlap) {
+      if (diagram[y][x] >= dangerThreshold) {
         count++;
       }
     }
