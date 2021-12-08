@@ -104,5 +104,5 @@ dist
 .tern-port
 
 # others
-template/
+#template/
 .DS_Store
