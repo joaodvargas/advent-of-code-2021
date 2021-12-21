@@ -1,6 +1,6 @@
 //const INPUT_FILE = 'example-short.in';
-const INPUT_FILE = 'example.in';
-//const INPUT_FILE = 'input.in';
+//const INPUT_FILE = 'example.in';
+const INPUT_FILE = 'input.in';
 
 const LOG = true;
 const log = LOG && console.log;
@@ -26,19 +26,42 @@ const solve = (scanners) => {
   // build array of scanners distances relative to s0, our origin
   const scannerDistances = buildScannersDistanceToOriginMap(scanners);
 
-  for (let idx = 0; idx < scannerDistances.length; idx++) {
-    const sDist = scannerDistances[idx];
-    log(
-      `Scanner ${idx} is at (${sDist.x},${sDist.y},${
-        sDist.z
-      }) applying calibrations: ${sDist.calibrations
-        .map((c) => calibrationToStr(c))
-        .join(' * ')}`
-    );
+  // find all probes' relative position to s0
+  const uniqueCoordinates = new Set();
+
+  for (let scannerIdx = 0; scannerIdx < scannerDistances.length; scannerIdx++) {
+    const scanner = scanners[scannerIdx];
+    const scannerDistance = scannerDistances[scannerIdx];
+    for (let probeIdx = 0; probeIdx < scanner.probes.length; probeIdx++) {
+      const calibratedProbeDistance = applyCalibrationToCoordinates(
+        scanner.probes[probeIdx],
+        scannerDistance.calibrations
+      );
+      const probeToOrigin = addUpCoordinates(
+        scannerDistance,
+        calibratedProbeDistance
+      );
+      uniqueCoordinates.add(coordinatesToKey(probeToOrigin));
+    }
+  }
+
+  if (log) {
+    for (let idx = 0; idx < scannerDistances.length; idx++) {
+      const sDist = scannerDistances[idx];
+      log(
+        `Scanner ${idx} is at (${coordinatesToKey(
+          sDist
+        )}) applying calibrations: ${sDist.calibrations
+          .map((c) => calibrationToStr(c))
+          .join(' * ')}`
+      );
+    }
   }
 
   return 42;
 };
+
+const coordinatesToKey = (c) => `${c.x},${c.y},${c.z}`;
 
 const calibrationToStr = (calibration) => {
   const mapIndexToLetter = {
@@ -73,6 +96,7 @@ const buildScannersDistanceToOriginMap = (scanners) => {
     y: 0,
     z: 0,
     calibrations: [],
+    calibratedTo: null,
   };
 
   const calculateDistanceBetweenScanners = (s1, s2) => {
@@ -92,6 +116,7 @@ const buildScannersDistanceToOriginMap = (scanners) => {
     scannerDistances[s2.id] = {
       ...s2toOrigin,
       calibrations: [s1.relativeCalibration[s2.id], ...s1toOrigin.calibrations],
+      calibratedTo: s1.id,
     };
     distancesMissing--;
 
