@@ -2,6 +2,9 @@
 const INPUT_FILE = 'example.in';
 //const INPUT_FILE = 'input.in';
 
+const LOG = true;
+const log = LOG && console.log;
+
 const readLines = require('../utils/readLines');
 
 // main code
@@ -15,8 +18,102 @@ function main(filePath) {
 // operate on input to solve problem
 const solve = (scanners) => {
   // calculate local probe distance
-  scanners.forEach(calculateProbeDistance);
+  scanners.forEach(calculateProbeManhattanDistance);
 
+  // see which scanners have overlapping probes and use it to calculate relative distance between scanners
+  findOverlapsAndRelativeDistances(scanners);
+
+  // build array of scanners distances relative to s0, our origin
+  const scannerDistances = buildScannersDistanceToOriginMap(scanners);
+
+  for (let idx = 0; idx < scannerDistances.length; idx++) {
+    const sDist = scannerDistances[idx];
+    log(
+      `Scanner ${idx} is at (${sDist.x},${sDist.y},${
+        sDist.z
+      }) applying calibrations: ${sDist.calibrations
+        .map((c) => calibrationToStr(c))
+        .join(' * ')}`
+    );
+  }
+
+  return 42;
+};
+
+const calibrationToStr = (calibration) => {
+  const mapIndexToLetter = {
+    [0]: 'x',
+    [1]: 'y',
+    [2]: 'z',
+  };
+
+  let str = '[';
+
+  // x
+  str += calibration.x[1] < 0 ? '-' : '';
+  str += mapIndexToLetter[calibration.x[0]];
+  str += ', ';
+  // y
+  str += calibration.y[1] < 0 ? '-' : '';
+  str += mapIndexToLetter[calibration.y[0]];
+  str += ', ';
+  // z
+  str += calibration.z[1] < 0 ? '-' : '';
+  str += mapIndexToLetter[calibration.z[0]];
+  str += ']';
+  return str;
+};
+
+const buildScannersDistanceToOriginMap = (scanners) => {
+  const originScanner = scanners[0];
+  let distancesMissing = scanners.length - 1;
+  const scannerDistances = Array(scanners.length);
+  scannerDistances[0] = {
+    x: 0,
+    y: 0,
+    z: 0,
+    calibrations: [],
+  };
+
+  const calculateDistanceBetweenScanners = (s1, s2) => {
+    if (scannerDistances[s2.id] != null || distancesMissing === 0) {
+      // found it already
+      return;
+    }
+
+    // get previous distance calculated
+    const s1toOrigin = scannerDistances[s1.id];
+
+    const calibratedS1toS2Distance = applyCalibrationToCoordinates(
+      s1.distanceTo[s2.id],
+      s1toOrigin.calibrations
+    );
+    const s2toOrigin = addUpCoordinates(s1toOrigin, calibratedS1toS2Distance);
+    scannerDistances[s2.id] = {
+      ...s2toOrigin,
+      calibrations: [s1.relativeCalibration[s2.id], ...s1toOrigin.calibrations],
+    };
+    distancesMissing--;
+
+    for (let idx = 0; idx < s2.distanceTo.length; idx++) {
+      if (s2.distanceTo[idx] == null) {
+        continue;
+      }
+      calculateDistanceBetweenScanners(s2, scanners[idx]);
+    }
+  };
+
+  for (let idx = 0; idx < originScanner.distanceTo.length; idx++) {
+    if (originScanner.distanceTo[idx] == null) {
+      continue;
+    }
+    calculateDistanceBetweenScanners(originScanner, scanners[idx]);
+  }
+
+  return scannerDistances;
+};
+
+const findOverlapsAndRelativeDistances = (scanners) => {
   // look for overlaps
   for (let s1Index = 0; s1Index < scanners.length; s1Index++) {
     for (let s2Index = s1Index + 1; s2Index < scanners.length; s2Index++) {
@@ -30,7 +127,7 @@ const solve = (scanners) => {
       );
 
       if (matchingProbes.length >= 12) {
-        console.log(
+        log(
           `Found ${matchingProbes.length} probes shared between scanners ${s1Index} and ${s2Index}`
         );
         let resolvedLocation = false;
@@ -67,14 +164,13 @@ const solve = (scanners) => {
                 calibration
               );
 
-              const relativePositionToScanner1 = getDistanceBetweenCoordinates(
+              const distanceToScanner1 = getDistanceBetweenCoordinates(
                 probe1,
                 p2CalibratedDistance
               );
 
               // found position of scanner2 relative to scanner1!
-              scanner1.relativePosition[scanner2.id] =
-                relativePositionToScanner1;
+              scanner1.distanceTo[scanner2.id] = distanceToScanner1;
               scanner1.relativeCalibration[scanner2.id] = calibration;
 
               // execute same logic in regards to s2 -> s1
@@ -89,12 +185,11 @@ const solve = (scanners) => {
                 probe1,
                 reverseCalibration
               );
-              const relativePositionToScanner2 = getDistanceBetweenCoordinates(
+              const distanceToScanner2 = getDistanceBetweenCoordinates(
                 probe2,
                 p1CalibratedDistance
               );
-              scanner2.relativePosition[scanner1.id] =
-                relativePositionToScanner2;
+              scanner2.distanceTo[scanner1.id] = distanceToScanner2;
               scanner2.relativeCalibration[scanner1.id] = reverseCalibration;
 
               resolvedLocation = true;
@@ -105,80 +200,7 @@ const solve = (scanners) => {
       }
     }
   }
-
-  const s0 = scanners[0],
-    s1 = scanners[1],
-    s2 = scanners[2],
-    s4 = scanners[4];
-
-  // test for 4 -> 1 -> 0
-  const calibratedPosition4to0axis = applyCalibrationToCoordinates(
-    s1.relativePosition[4],
-    s0.relativeCalibration[1]
-  );
-  const position4to0 = addUpCoordinates(
-    s0.relativePosition[1],
-    calibratedPosition4to0axis
-  );
-  // test for 3 -> 1 -> 0
-  const calibratedPosition3to0axis = applyCalibrationToCoordinates(
-    s1.relativePosition[3],
-    s0.relativeCalibration[1]
-  );
-  const position3to0 = addUpCoordinates(
-    s0.relativePosition[1],
-    calibratedPosition3to0axis
-  );
-
-  // test for 2 -> 4 -> 1 -> 0
-  const calibratedPosition2to1axis = applyCalibrationToCoordinates(
-    s4.relativePosition[2],
-    s1.relativeCalibration[4]
-  );
-  const calibration2to1to0axis = applyCalibrationToCoordinates(
-    calibratedPosition2to1axis,
-    s0.relativeCalibration[1]
-  );
-  const position2to0 = addUpCoordinates(position4to0, calibration2to1to0axis);
-
-  const calibration2to1to0axisv2 = applyCalibrationToCoordinates(
-    s4.relativePosition[2],
-    [s1.relativeCalibration[4], s0.relativeCalibration[1]]
-  );
-  const position2to0v2 = addUpCoordinates(position4to0, calibration2to1to0axis);
-
-  return 42;
 };
-
-// const getCoordinates = (obj) => ({
-//   x: obj.x,
-//   y: obj.y,
-//   z: obj.z,
-// });
-
-// const calibrationToStr = (calibration) => {
-//   const mapIndexToLetter = {
-//     [0]: 'x',
-//     [1]: 'y',
-//     [2]: 'z',
-//   };
-
-//   let str = '[';
-
-//   // x
-//   str += calibration.x[1] < 0 ? '-' : '';
-//   str += mapIndexToLetter[calibration.x[0]];
-//   str += ', ';
-//   // y
-//   str += calibration.y[1] < 0 ? '-' : '';
-//   str += mapIndexToLetter[calibration.y[0]];
-//   str += ', ';
-//   // z
-//   str += calibration.z[1] < 0 ? '-' : '';
-//   str += mapIndexToLetter[calibration.z[0]];
-//   str += ']';
-//   return str;
-// };
 
 const calibrateAxisBasedOnDistance = (distance1, distance2) => {
   // if we have same distances, go to next
@@ -210,28 +232,6 @@ const calibrateAxisBasedOnDistance = (distance1, distance2) => {
   }
   throw Error('Unable to find meaningful calibration');
 };
-
-// const applyCalibrationToCalibration = (originalCalibration, modifier) => {
-//   const newCalibration = [0, 0, 0];
-//   newCalibration[modifier.x[0]] = [
-//     originalCalibration.x[0],
-//     originalCalibration.x[1] * modifier.x[1],
-//   ];
-//   newCalibration[modifier.y[0]] = [
-//     originalCalibration.y[0],
-//     originalCalibration.y[1] * modifier.y[1],
-//   ];
-//   newCalibration[modifier.z[0]] = [
-//     originalCalibration.z[0],
-//     originalCalibration.z[1] * modifier.z[1],
-//   ];
-
-//   return {
-//     x: newCalibration[0],
-//     y: newCalibration[1],
-//     z: newCalibration[2],
-//   };
-// };
 
 const applyCalibrationToCoordinates = (coordinates, calibrations) => {
   if (!Array.isArray(calibrations)) {
@@ -335,7 +335,7 @@ const findProbesWithSameDistanceToOtherProbes = (scanner1, scanner2) => {
   return possibleMatch;
 };
 
-const calculateProbeDistance = ({ id, probes }) => {
+const calculateProbeManhattanDistance = ({ id, probes }) => {
   for (let p1Index = 0; p1Index < probes.length; p1Index++) {
     for (let p2Index = p1Index + 1; p2Index < probes.length; p2Index++) {
       // dist between every probe
@@ -385,7 +385,7 @@ const parseInput = async (filePath) => {
       scanners.push({
         id: scannerIndex++,
         probes: [],
-        relativePosition: [],
+        distanceTo: [],
         relativeCalibration: [],
       });
       probeIndex = 0;
