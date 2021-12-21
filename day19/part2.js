@@ -25,22 +25,16 @@ const solve = (scanners) => {
   // build array of scanners distances relative to s0, our origin
   const scannerDistances = buildScannersDistanceToOriginMap(scanners);
 
-  // find all probes' relative position to s0
-  const uniqueCoordinates = new Set();
-
-  for (let scannerIdx = 0; scannerIdx < scannerDistances.length; scannerIdx++) {
-    const scanner = scanners[scannerIdx];
-    const scannerDistance = scannerDistances[scannerIdx];
-    for (let probeIdx = 0; probeIdx < scanner.probes.length; probeIdx++) {
-      const calibratedProbeDistance = applyCalibrationToCoordinates(
-        scanner.probes[probeIdx],
-        scannerDistance.calibrations
+  // find max manhattan distance between scanners
+  let maxDistance = 0;
+  for (let idx = 0; idx < scannerDistances.length; idx++) {
+    const s1 = scannerDistances[idx];
+    for (let idx2 = idx + 1; idx2 < scannerDistances.length; idx2++) {
+      const s2 = scannerDistances[idx2];
+      maxDistance = Math.max(
+        maxDistance,
+        Math.abs(s2.x - s1.x) + Math.abs(s2.y - s1.y) + Math.abs(s2.z - s1.z)
       );
-      const probeToOrigin = addUpCoordinates(
-        scannerDistance,
-        calibratedProbeDistance
-      );
-      uniqueCoordinates.add(coordinatesToKey(probeToOrigin));
     }
   }
 
@@ -57,7 +51,7 @@ const solve = (scanners) => {
     }
   }
 
-  return uniqueCoordinates.size;
+  return maxDistance;
 };
 
 const coordinatesToKey = (c) => `${c.x},${c.y},${c.z}`;
