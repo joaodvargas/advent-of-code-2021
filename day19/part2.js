@@ -5,12 +5,16 @@ const LOG = false;
 const log = LOG ? console.log : () => {};
 
 const readLines = require('../utils/readLines');
+const { performance } = require('perf_hooks');
 
 // main code
 function main(filePath) {
+  const startTime = performance.now();
   parseInput(filePath).then((input) => {
     const solution = solve(input);
+    const endTime = performance.now();
     console.log(`The value you are looking for is ${solution}`);
+    console.log(`Took ${Math.ceil(endTime - startTime)}ms to find it`);
   });
 }
 

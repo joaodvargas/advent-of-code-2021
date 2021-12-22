@@ -17,16 +17,15 @@ function main(filePath) {
 
 const WIN_SCORE = 21;
 
-// track universe wins
-let p1wins = 0;
-let p2wins = 0;
-
 // operate on input to solve problem
 const solve = ([player1Start, player2Start]) => {
-  rollDiracDie(player1Start, player2Start, 0, 0, 0, 1);
+  const [p1wins, p2wins] = rollDiracDie(player1Start, player2Start, 0, 0, 0, 1);
 
   return Math.max(p1wins, p2wins);
 };
+
+const memoizeKey = (a, b, c, d, e) => `${a},${b},${c},${d},${e}`;
+const memoizedResults = {};
 
 const rollDiracDie = (
   p1position,
@@ -36,6 +35,13 @@ const rollDiracDie = (
   nextPlayer,
   accUniverses
 ) => {
+  const mKey = memoizeKey(p1position, p2position, p1score, p2score, nextPlayer);
+  if (memoizedResults[mKey] != null) {
+    return memoizedResults[mKey].map((w) => w * accUniverses);
+  }
+
+  let p1wins = 0,
+    p2wins = 0;
   for (let idx = 0; idx < DIE_ROLLS.length; idx++) {
     const { res, combinations } = DIE_ROLLS[idx];
     if (nextPlayer === 0) {
@@ -47,7 +53,7 @@ const rollDiracDie = (
       if (newP1score >= WIN_SCORE) {
         p1wins += accUniverses * combinations;
       } else {
-        rollDiracDie(
+        const wins = rollDiracDie(
           newP1position,
           p2position,
           newP1score,
@@ -55,6 +61,8 @@ const rollDiracDie = (
           1,
           accUniverses * combinations
         );
+        p1wins += wins[0];
+        p2wins += wins[1];
       }
     } else {
       let newP2position = (p2position + res) % 10;
@@ -65,7 +73,7 @@ const rollDiracDie = (
       if (newP2score >= WIN_SCORE) {
         p2wins += accUniverses * combinations;
       } else {
-        rollDiracDie(
+        const wins = rollDiracDie(
           p1position,
           newP2position,
           p1score,
@@ -73,9 +81,15 @@ const rollDiracDie = (
           0,
           accUniverses * combinations
         );
+        p1wins += wins[0];
+        p2wins += wins[1];
       }
     }
   }
+
+  // memoize forward facing results only
+  memoizedResults[mKey] = [p1wins / accUniverses, p2wins / accUniverses];
+  return [p1wins, p2wins];
 };
 
 // read file input into data structure(s)
@@ -102,3 +116,11 @@ const DIE_ROLLS = [
 
 // run
 main(process.argv[2] || INPUT_FILE);
+
+// original w/o memoization:
+// The value you are looking for is 175731756652760
+// Took 1163ms to find it
+// ...
+// new with memoization
+// The value you are looking for is 175731756652760
+// Took 85ms to find it
