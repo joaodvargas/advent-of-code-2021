@@ -1,5 +1,5 @@
-const INPUT_FILE = 'example.in';
-//const INPUT_FILE = 'input.in';
+//const INPUT_FILE = 'example2.in';
+const INPUT_FILE = 'input.in';
 
 const readLines = require('../utils/readLines');
 const { performance } = require('perf_hooks');
@@ -15,46 +15,84 @@ function main(filePath) {
   });
 }
 
-const c1 = {
-  x1: -3,
-  x2: 3,
-  y1: -3,
-  y2: 3,
-  z1: -3,
-  z2: 3,
-};
-
-const c2 = {
-  x1: 0,
-  x2: 3,
-  y1: 1,
-  y2: 4,
-  z1: -1,
-  z2: 1,
-};
-
 // operate on input to solve problem
-const solve = (cuboids) => {
-  // tests
-  console.log(doCuboidsCollide(c1, c2));
-  console.log(doesCuboid1Contains2(c1, c2));
-  console.log(doesCuboid1Contains2(c2, c1));
-  return 42;
+const solve = (initialCuboids) => {
+  let finalCuboids = [];
+
+  initialCuboids.forEach((cuboid, cuboidIdx) => {
+    let cuboidsToAdd = [],
+      cuboidsToRemove = [];
+
+    for (let idx = 0; idx < finalCuboids.length; idx++) {
+      const prevCuboid = finalCuboids[idx];
+      if (doCuboidsShareCubes(cuboid, prevCuboid)) {
+        cuboidsToRemove.push(prevCuboid);
+
+        // all contained, we don't need to split anything
+        if (doesCuboid1Contains2(cuboid, prevCuboid)) {
+          continue;
+        }
+        const intersectionCuboid = getIntersectionCuboid(cuboid, prevCuboid);
+        const newCuboids = carveOutCuboids(intersectionCuboid, prevCuboid);
+        cuboidsToAdd = [...cuboidsToAdd, ...newCuboids];
+      }
+    }
+    finalCuboids = finalCuboids.filter((fc) => !cuboidsToRemove.includes(fc));
+    finalCuboids = finalCuboids.concat(cuboidsToAdd);
+    if (cuboid.value === 1) {
+      finalCuboids.push(cuboid);
+    }
+  });
+
+  // reduce our final cuboids
+  const value = finalCuboids.reduce((acc, fc) => acc + getCubesInCuboid(fc), 0);
+
+  return value;
 };
 
-// https://stackoverflow.com/questions/28170413/intersection-between-two-boxes-in-3d-space
-const cuboidsInterseection = (c1, c2) => {
-  // ...
+// split into non-touching cuboids around c1 (can't touch else cubes would be shared!)
+const carveOutCuboids = (c1, cuboidToSplit) => {
+  const resultingCuboids = [];
+  const toSplit = { ...cuboidToSplit };
+  // x plane
+  if (toSplit.x2 > c1.x2) {
+    resultingCuboids.push({ ...toSplit, x1: c1.x2 + 1 });
+    toSplit.x2 = c1.x2;
+  }
+  if (c1.x1 > toSplit.x1) {
+    resultingCuboids.push({ ...toSplit, x2: c1.x1 - 1 });
+    toSplit.x1 = c1.x1;
+  }
+  // y plane
+  if (toSplit.y2 > c1.y2) {
+    resultingCuboids.push({ ...toSplit, y1: c1.y2 + 1 });
+    toSplit.y2 = c1.y2;
+  }
+  if (c1.y1 > toSplit.y1) {
+    resultingCuboids.push({ ...toSplit, y2: c1.y1 - 1 });
+    toSplit.y1 = c1.y1;
+  }
+  // z plane
+  if (toSplit.z2 > c1.z2) {
+    resultingCuboids.push({ ...toSplit, z1: c1.z2 + 1 });
+    toSplit.z2 = c1.z2;
+  }
+  if (c1.z1 > toSplit.z1) {
+    resultingCuboids.push({ ...toSplit, z2: c1.z1 - 1 });
+    toSplit.z1 = c1.z1;
+  }
+
+  return resultingCuboids;
 };
 
 // https://developer.mozilla.org/en-US/docs/Games/Techniques/3D_collision_detection#aabb_vs._aabb
-const doCuboidsCollide = (c1, c2) =>
-  c1.x1 < c2.x2 &&
-  c1.x2 > c2.x1 &&
-  c1.y1 < c2.y2 &&
-  c1.y2 > c2.y1 &&
-  c1.z1 < c2.z2 &&
-  c1.z2 > c2.z1;
+const doCuboidsShareCubes = (c1, c2) =>
+  c1.x1 <= c2.x2 &&
+  c1.x2 >= c2.x1 &&
+  c1.y1 <= c2.y2 &&
+  c1.y2 >= c2.y1 &&
+  c1.z1 <= c2.z2 &&
+  c1.z2 >= c2.z1;
 
 const doesCuboid1Contains2 = (c1, c2) =>
   c1.x1 <= c2.x1 &&
@@ -63,6 +101,18 @@ const doesCuboid1Contains2 = (c1, c2) =>
   c1.y2 >= c2.y2 &&
   c1.z1 <= c2.z1 &&
   c1.z2 >= c2.z2;
+
+const getIntersectionCuboid = (c1, c2) => ({
+  x1: Math.max(c1.x1, c2.x1),
+  x2: Math.min(c1.x2, c2.x2),
+  y1: Math.max(c1.y1, c2.y1),
+  y2: Math.min(c1.y2, c2.y2),
+  z1: Math.max(c1.z1, c2.z1),
+  z2: Math.min(c1.z2, c2.z2),
+});
+
+const getCubesInCuboid = (c) =>
+  (c.x2 - c.x1 + 1) * (c.y2 - c.y1 + 1) * (c.z2 - c.z1 + 1);
 
 // read file input into data structure(s)
 const parseInput = async (filePath) => {
@@ -73,13 +123,13 @@ const parseInput = async (filePath) => {
 
   // parse lines
   const cubes = lines.map((l) => {
-    const res = {};
+    let value = null;
     // on or off
     if (l.indexOf('on ') > -1) {
-      res.value = 1;
+      value = 1;
       l = l.substring(3);
     } else {
-      res.value = 0;
+      value = 0;
       l = l.substring(4);
     }
     // x,y,z
@@ -87,17 +137,32 @@ const parseInput = async (filePath) => {
     const axis = l.split(',');
     const [xvalues, yvalues, zvalues] = axis.map((a) => a.split('..'));
 
-    res.x1 = +xvalues[0];
-    res.x2 = +xvalues[1];
-    res.y1 = +yvalues[0];
-    res.y2 = +yvalues[1];
-    res.z1 = +zvalues[0];
-    res.z2 = +zvalues[1];
-
-    return res;
+    // additional
+    return createCuboid(
+      +xvalues[0],
+      +xvalues[1],
+      +yvalues[0],
+      +yvalues[1],
+      +zvalues[0],
+      +zvalues[1],
+      value
+    );
   });
 
   return cubes;
+};
+
+const createCuboid = (x1, x2, y1, y2, z1, z2, value = 1) => {
+  const cuboid = {
+    x1,
+    x2,
+    y1,
+    y2,
+    z1,
+    z2,
+    value,
+  };
+  return cuboid;
 };
 
 // run
